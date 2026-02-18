@@ -1,11 +1,11 @@
 import os
 import yaml
-from typing import Dict, Any, List
+from typing import Dict, Any
 from dotenv import load_dotenv
 
-# Load .env file from the root of the repo (assuming script is run from scripts/mm_user_mgmt)
-# Adjust path to find .env two levels up
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+# Load .env file from the root of the repo (assuming script is run from scripts/)
+# Adjust path to find .env one level up
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 load_dotenv(os.path.join(ROOT_DIR, ".env"))
 
 def load_config(config_path: str = "config.yaml") -> Dict[str, Any]:

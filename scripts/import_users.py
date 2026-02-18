@@ -1,14 +1,15 @@
 import csv
 import argparse
 import sys
-from typing import List, Dict
+from typing import Dict
 from config_loader import load_config, get_env_var
 from mm_client import MattermostClient
-from utils import setup_logging, get_logger, confirm_action
+from utils import setup_logging, get_logger
 
 logger = get_logger(__name__)
 
 def parse_args():
+    """Parses command-line arguments for the user import script."""
     parser = argparse.ArgumentParser(description="Import users from CSV to Mattermost.")
     parser.add_argument("--csv", required=True, help="Path to users.csv file")
     parser.add_argument("--dry-run", action="store_true", help="Simulate actions without changes")
@@ -17,6 +18,9 @@ def parse_args():
     return parser.parse_args()
 
 def process_row(row: Dict[str, str], config: Dict, client: MattermostClient, dry_run: bool):
+    """
+    Processes a single CSV row to create/update a user and assign them to teams/channels.
+    """
     email = row.get("email", "").strip()
     firstname = row.get("firstname", "").strip()
     lastname = row.get("lastname", "").strip()
@@ -58,13 +62,14 @@ def process_row(row: Dict[str, str], config: Dict, client: MattermostClient, dry
         return
 
     # 3. Add to Team
-    team = client.get_team_by_name(target_team_name)
+    target_team_slug = target_team_name.lower().replace(" ", "-")
+    team = client.get_team_by_name(target_team_slug)
     if not team:
         # Auto-create team if it doesn't exist? Constraint says "Create team if missing OR fail".
         # Let's try to create it if it's the mapped name, to be helpful.
-        logger.info(f"Team '{target_team_name}' not found. Attempting to create...")
+        logger.info(f"Team '{target_team_name}' ({target_team_slug}) not found. Attempting to create...")
         if not dry_run:
-            team = client.create_team(target_team_name.lower().replace(" ", "-"), target_team_name)
+            team = client.create_team(target_team_slug, target_team_name)
 
     if team:
         logger.info(f"Adding {email} to team '{target_team_name}'")

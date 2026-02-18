@@ -1,5 +1,6 @@
 .env
 *.csv
+.*_cache/
 
 # Ignore everything inside docker
 docker/*
@@ -10,6 +11,4 @@ docker/*
 # Re-allow specific files
 !docker/config/
 !docker/config/config.json
-!docker/docker-compose.yaml
-!docker/.env
 

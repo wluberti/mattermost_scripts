@@ -1,12 +1,14 @@
 import argparse
+import csv
 import sys
 from config_loader import get_env_var
 from mm_client import MattermostClient
-from utils import setup_logging, get_logger, confirm_action
+from utils import setup_logging, get_logger
 
 logger = get_logger(__name__)
 
 def parse_args():
+    """Parses command-line arguments for the user disable script."""
     parser = argparse.ArgumentParser(description="Disable Mattermost users.")
     parser.add_argument("emails", nargs="*", help="List of emails to disable")
     parser.add_argument("--file", help="File containing list of emails (one per line)")
@@ -21,8 +23,36 @@ def main():
     emails = args.emails
     if args.file:
         try:
-            with open(args.file, "r") as f:
-                emails.extend([line.strip() for line in f if line.strip()])
+            with open(args.file, "r", encoding='utf-8-sig') as f:
+                # Check if it's a CSV with headers
+                sample = f.read(1024)
+                f.seek(0)
+                sniffer = csv.Sniffer()
+                has_header = False
+                try:
+                    has_header = sniffer.has_header(sample)
+                except csv.Error:
+                    pass # Could not determine
+
+                reader = csv.reader(f)
+                if has_header:
+                    dict_reader = csv.DictReader(f)
+                    # Reset to read from start of dict reader (which handles header)
+                    f.seek(0)
+                    dict_reader = csv.DictReader(f) # Re-init to be safe
+                    for row in dict_reader:
+                        # Try 'email' column, wildcard match, or fallback to first value
+                         email = row.get('email')
+                         if not email and row: # Fallback to first value if no 'email' key
+                             email = list(row.values())[0]
+                         if email:
+                             emails.append(email.strip())
+                else:
+                    # Assume simple list
+                    f.seek(0)
+                    for line in f:
+                        if line.strip():
+                            emails.append(line.strip())
         except FileNotFoundError:
             logger.error(f"File not found: {args.file}")
             sys.exit(1)

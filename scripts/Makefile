@@ -25,11 +25,15 @@ $(VENV)/bin/activate: requirements.txt
 test: setup
 	$(PYTHON) -m pytest test_smoke.py
 
+CSV ?= ../users.csv
+DISABLE_CSV ?= ../disable.csv
+ARGS ?=
+
 import: setup
-	$(PYTHON) import_users.py --help
+	$(PYTHON) import_users.py --csv $(CSV) $(ARGS)
 
 disable: setup
-	$(PYTHON) disable_users.py --help
+	$(PYTHON) disable_users.py --file $(DISABLE_CSV) $(ARGS)
 
 clean:
 	rm -rf $(VENV)

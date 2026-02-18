@@ -1,6 +1,7 @@
 import pytest
 import os
 import csv
+import sys
 import time
 import subprocess
 from mm_client import MattermostClient
@@ -113,7 +114,6 @@ def test_import_users_execute(client, prepare_csv):
 
     # Verify Channel Membership (Captains)
     # We need to check if user is in 'Captains' channel
-    chan_name = "Captains"
     chan_slug = "captains"
     channel = client.get_channel_by_name(team["id"], chan_slug)
     assert channel is not None
@@ -136,5 +136,3 @@ def test_disable_user(client):
     user = client.get_user_by_email(email)
     # Disabled users usually have 'delete_at' set > 0
     assert user["delete_at"] > 0
-
-import sys

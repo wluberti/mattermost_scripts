@@ -1,13 +1,14 @@
 import requests
-import json
-import time
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, Optional, List
 from utils import get_logger
 
 logger = get_logger(__name__)
 
 class MattermostClient:
+    """Client for interacting with the Mattermost API."""
+
     def __init__(self, url: str, token: str):
+        """Initializes the client with URL and token."""
         self.url = url.rstrip("/")
         self.token = token
         self.headers = {
@@ -34,7 +35,7 @@ class MattermostClient:
              logger.error(f"Login failed: {e}")
              raise
 
-    def _request(self, method: str, endpoint: str, data: Dict = None, params: Dict = None) -> Any:
+    def _request(self, method: str, endpoint: str, data: Dict = None, params: Dict = None, expected_status_codes: List[int] = None) -> Any:
         """Internal method to handle requests with error handling."""
         url = f"{self.api_url}{endpoint}"
         try:
@@ -47,15 +48,23 @@ class MattermostClient:
                 return {}
             return response.json()
         except requests.exceptions.RequestException as e:
-            logger.error(f"API Request Failed: {method} {url} - {e}")
-            if hasattr(e, 'response') and e.response is not None:
-                logger.debug(f"Response: {e.response.text}")
+            is_expected = False
+            if expected_status_codes and isinstance(e, requests.exceptions.HTTPError) and e.response is not None:
+                if e.response.status_code in expected_status_codes:
+                     is_expected = True
+
+            if not is_expected:
+                logger.error(f"API Request Failed: {method} {url} - {e}")
+                if hasattr(e, 'response') and e.response is not None:
+                    logger.debug(f"Response: {e.response.text}")
+            else:
+                logger.debug(f"Expected API Error: {method} {url} - {e}")
             raise
 
     # User Management
     def get_user_by_email(self, email: str) -> Optional[Dict]:
         try:
-            return self._request("GET", f"/users/email/{email}")
+            return self._request("GET", f"/users/email/{email}", expected_status_codes=[404])
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 404:
                 return None
@@ -90,7 +99,7 @@ class MattermostClient:
     # Team Management
     def get_team_by_name(self, name: str) -> Optional[Dict]:
         try:
-            return self._request("GET", f"/teams/name/{name}")
+            return self._request("GET", f"/teams/name/{name}", expected_status_codes=[404])
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 404:
                 return None
@@ -127,7 +136,7 @@ class MattermostClient:
     # Channel Management
     def get_channel_by_name(self, team_id: str, channel_name: str) -> Optional[Dict]:
         try:
-            return self._request("GET", f"/teams/{team_id}/channels/name/{channel_name}")
+            return self._request("GET", f"/teams/{team_id}/channels/name/{channel_name}", expected_status_codes=[404])
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 404:
                 return None
