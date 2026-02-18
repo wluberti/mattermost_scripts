@@ -1,2 +1,15 @@
 .env
 *.csv
+
+# Ignore everything inside docker
+docker/*
+
+# But keep the directory itself
+!docker/
+
+# Re-allow specific files
+!docker/config/
+!docker/config/config.json
+!docker/docker-compose.yaml
+!docker/.env
+

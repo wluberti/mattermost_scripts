@@ -1,0 +1,75 @@
+services:
+  postgres:
+    image: postgres:${POSTGRES_IMAGE_TAG}
+    restart: ${RESTART_POLICY}
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 16G
+
+    # Postgres must be writable; keep only /tmp as tmpfs
+    read_only: false
+    tmpfs:
+      - /tmp
+
+    # Make Postgres accessible from the host (localhost only)
+    ports:
+      - "127.0.0.1:5432:5432"
+
+    # Use the standard PGDATA location and persist it
+    environment:
+      - TZ
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - POSTGRES_DB
+      # Optional, but makes the data dir explicit and consistent
+      - PGDATA=/var/lib/postgresql/data
+
+    volumes:
+      # IMPORTANT: persist *the data directory*, not /var/lib/postgresql
+      - ${POSTGRES_DATA_PATH}:/var/lib/postgresql/data
+
+    # Optional but helpful: allows compose to wait on DB readiness
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h 127.0.0.1 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  mattermost:
+    image: mattermost/${MATTERMOST_IMAGE}:${MATTERMOST_IMAGE_TAG}
+    restart: ${RESTART_POLICY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 4G
+
+    # Published ports for local dev
+    ports:
+      - "8065:8065"
+      - "8067:8067"
+      - "8074:8074"
+      - "8075:8075"
+
+    read_only: ${MATTERMOST_CONTAINER_READONLY}
+    tmpfs:
+      - /tmp
+
+    environment:
+      - TZ
+      - MM_SQLSETTINGS_DRIVERNAME
+      - MM_SQLSETTINGS_DATASOURCE
+      - MM_BLEVESETTINGS_INDEXDIR
+      - MM_SERVICESETTINGS_SITEURL
+
+    volumes:
+      - ${MATTERMOST_CONFIG_PATH}:/mattermost/config:rw
+      - ${MATTERMOST_DATA_PATH}:/mattermost/data:rw
+      - ${MATTERMOST_LOGS_PATH}:/mattermost/logs:rw
+      - ${MATTERMOST_PLUGINS_PATH}:/mattermost/plugins:rw
+      - ${MATTERMOST_CLIENT_PLUGINS_PATH}:/mattermost/client/plugins:rw
+      - ${MATTERMOST_BLEVE_INDEXES_PATH}:/mattermost/bleve-indexes:rw
+      # - ${GITLAB_PKI_CHAIN_PATH}:/etc/ssl/certs/pki_chain.pem:ro
+
