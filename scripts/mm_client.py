@@ -70,23 +70,25 @@ class MattermostClient:
                 return None
             raise
 
-    def create_user(self, email: str, username: str, first_name: str, last_name: str, password: str = "Password123!") -> Dict:
+    def create_user(self, email: str, username: str, first_name: str, last_name: str, position: str = "", password: str = "Password123!") -> Dict:
         """Creates a new user."""
         data = {
             "email": email,
             "username": username,
             "first_name": first_name,
             "last_name": last_name,
+            "position": position,
             "password": password,
         }
         logger.info(f"Creating user: {username} ({email})")
         return self._request("POST", "/users", data=data)
 
-    def update_user(self, user_id: str, first_name: str, last_name: str) -> Dict:
+    def update_user(self, user_id: str, first_name: str, last_name: str, position: str = "") -> Dict:
         """Updates user profile."""
         data = {
             "first_name": first_name,
             "last_name": last_name,
+            "position": position,
         }
         logger.info(f"Updating user {user_id}")
         return self._request("PUT", f"/users/{user_id}/patch", data=data)
@@ -95,6 +97,12 @@ class MattermostClient:
         """Disables a user."""
         logger.info(f"Disabling user {user_id}")
         return self._request("DELETE", f"/users/{user_id}")
+
+    def activate_user(self, user_id: str) -> Dict:
+        """Activates a user."""
+        logger.info(f"Activating user {user_id}")
+        data = {"active": True}
+        return self._request("PUT", f"/users/{user_id}/active", data=data)
 
     # Team Management
     def get_team_by_name(self, name: str) -> Optional[Dict]:

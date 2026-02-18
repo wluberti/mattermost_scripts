@@ -24,8 +24,8 @@ def process_row(row: Dict[str, str], config: Dict, client: MattermostClient, dry
     email = row.get("email", "").strip()
     firstname = row.get("firstname", "").strip()
     lastname = row.get("lastname", "").strip()
-    team_csv = row.get("team", "").strip()
-    tags = [t.strip() for t in row.get("tags", "").split(",") if t.strip()]
+    team_csv = row.get("team", "").strip() # This is now the Channel Name
+    tags_csv = row.get("tags", "").strip() # This is now the Position
 
     if not email:
         logger.warning(f"Skipping row with missing email: {row}")
@@ -33,16 +33,21 @@ def process_row(row: Dict[str, str], config: Dict, client: MattermostClient, dry
 
     username = email.split("@")[0] # Simple username generation
 
-    # 1. Create/Update User
+    # 1. Create/Update User with Position
     user = client.get_user_by_email(email)
     if user:
+        if user.get("delete_at", 0) > 0:
+            logger.info(f"User {email} is disabled (archived). Reactivating...")
+            if not dry_run:
+                client.activate_user(user["id"])
+
         logger.info(f"User exists: {email}")
         if not dry_run:
-            client.update_user(user["id"], firstname, lastname)
+            client.update_user(user["id"], firstname, lastname, position=tags_csv)
     else:
-        logger.info(f"Creating user: {email}")
+        logger.info(f"Creating user: {email} (Position: {tags_csv})")
         if not dry_run:
-            user = client.create_user(email, username, firstname, lastname)
+            user = client.create_user(email, username, firstname, lastname, position=tags_csv)
             if not user:
                 logger.error(f"Failed to create user {email}")
                 return
@@ -52,62 +57,56 @@ def process_row(row: Dict[str, str], config: Dict, client: MattermostClient, dry
 
     user_id = user["id"]
 
-    # 2. Determine Team
-    # Check config mapping first, then CSV value, then default
-    team_name_mapped = config.get("team_mapping", {}).get(team_csv)
-    target_team_name = team_name_mapped or team_csv or config.get("default_team")
-
+    # 2. Determine Mattermost Team (Always use default_team)
+    target_team_name = config.get("default_team")
     if not target_team_name:
-        logger.error(f"Could not determine team for {email}. CSV: '{team_csv}'")
+        logger.error("No 'default_team' defined in config.yaml")
         return
 
-    # 3. Add to Team
     target_team_slug = target_team_name.lower().replace(" ", "-")
     team = client.get_team_by_name(target_team_slug)
+
+    # Auto-create default team if missing (safety net)
     if not team:
-        # Auto-create team if it doesn't exist? Constraint says "Create team if missing OR fail".
-        # Let's try to create it if it's the mapped name, to be helpful.
-        logger.info(f"Team '{target_team_name}' ({target_team_slug}) not found. Attempting to create...")
+        logger.info(f"Default Team '{target_team_name}' ({target_team_slug}) not found. Attempting to create...")
         if not dry_run:
             team = client.create_team(target_team_slug, target_team_name)
 
-    if team:
-        logger.info(f"Adding {email} to team '{target_team_name}'")
-        if not dry_run:
-            client.add_user_to_team(team["id"], user_id)
+    if not team:
+        logger.error(f"Default team '{target_team_name}' could not be found or created.")
+        return
 
-            # 4. Add to Default Channels
-            for chan_name in config.get("default_channels", []):
-                channel = client.get_channel_by_name(team["id"], chan_name.lower().replace(" ", "-"))
-                if channel:
-                     client.add_user_to_channel(channel["id"], user_id)
-                else:
-                    logger.warning(f"Default channel '{chan_name}' not found in team '{target_team_name}'")
+    # 3. Add User to Team
+    logger.info(f"Adding {email} to team '{target_team_name}'")
+    if not dry_run:
+        client.add_user_to_team(team["id"], user_id)
 
-            # 5. Add to Tag-based Channels
-            tag_mapping = config.get("tag_channel_mapping", {})
-            for tag in tags:
-                if tag in tag_mapping:
-                    channels_to_add = tag_mapping[tag]
-                    for chan_name in channels_to_add:
-                        # Normalize channel name for lookup (often slugified)
-                        chan_slug = chan_name.lower().replace(" ", "-")
-                        channel = client.get_channel_by_name(team["id"], chan_slug)
-                        if not channel:
-                             # Try creating
-                             logger.info(f"Channel '{chan_name}' not found. Creating...")
-                             if not dry_run:
-                                 channel = client.create_channel(team["id"], chan_slug, chan_name)
+    # 4. Add to Default Channels
+    for chan_name in config.get("default_channels", []):
+        chan_slug = chan_name.lower().replace(" ", "-")
+        channel = client.get_channel_by_name(team["id"], chan_slug)
+        if channel:
+             client.add_user_to_channel(channel["id"], user_id)
+        else:
+            logger.warning(f"Default channel '{chan_name}' not found in team '{target_team_name}'")
 
-                        if channel:
-                            logger.info(f"Adding {email} to channel '{chan_name}' (Tag: {tag})")
-                            if not dry_run:
-                                client.add_user_to_channel(channel["id"], user_id)
-                        else:
-                            logger.error(f"Could not find or create channel '{chan_name}'")
+    # 5. Add to 'Team' Channel (from CSV)
+    if team_csv:
+        chan_name = team_csv
+        chan_slug = chan_name.lower().replace(" ", "-")
+        channel = client.get_channel_by_name(team["id"], chan_slug)
 
-    else:
-        logger.error(f"Team '{target_team_name}' could not be found or created.")
+        if not channel:
+             logger.info(f"Channel '{chan_name}' not found. Creating...")
+             if not dry_run:
+                 channel = client.create_channel(team["id"], chan_slug, chan_name)
+
+        if channel:
+            logger.info(f"Adding {email} to channel '{chan_name}'")
+            if not dry_run:
+                client.add_user_to_channel(channel["id"], user_id)
+        else:
+            logger.error(f"Could not find or create channel '{chan_name}'")
 
 def main():
     args = parse_args()

@@ -14,8 +14,14 @@ This directory contains Python scripts for managing Mattermost users and teams v
 
 ## Usage
 
-### Import Users
-Imports users from a CSV file. Defaults to `../users.csv`.
+### Import Users from CSV
+
+Reads `users.csv` and creates/updates users.
+
+**Logic:**
+- **Team Column**: Treated as a **Channel Name**. The user is added to this channel (created if missing) within the `default_team`.
+- **Tags Column**: Added to the user's **Position** field in Mattermost.
+- **Default Team**: All users are added to the team defined in `config.yaml` (`default_team`).
 
 **Dry Run:**
 ```bash

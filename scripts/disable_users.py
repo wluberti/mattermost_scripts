@@ -24,35 +24,39 @@ def main():
     if args.file:
         try:
             with open(args.file, "r", encoding='utf-8-sig') as f:
-                # Check if it's a CSV with headers
-                sample = f.read(1024)
-                f.seek(0)
-                sniffer = csv.Sniffer()
-                has_header = False
-                try:
-                    has_header = sniffer.has_header(sample)
-                except csv.Error:
-                    pass # Could not determine
+                # Read all lines first to avoid seek issues with some file-like objects
+                lines = [line.strip() for line in f if line.strip()]
 
-                reader = csv.reader(f)
+                if not lines:
+                    return
+
+                # Check if first line is a header
+                first_line = lines[0].lower()
+                has_header = "email" in first_line or "," in first_line
+
                 if has_header:
-                    dict_reader = csv.DictReader(f)
-                    # Reset to read from start of dict reader (which handles header)
+                    # Parse as CSV from the original file (re-opened or sought)
                     f.seek(0)
-                    dict_reader = csv.DictReader(f) # Re-init to be safe
-                    for row in dict_reader:
-                        # Try 'email' column, wildcard match, or fallback to first value
-                         email = row.get('email')
-                         if not email and row: # Fallback to first value if no 'email' key
-                             email = list(row.values())[0]
-                         if email:
-                             emails.append(email.strip())
+                    reader = csv.DictReader(f)
+                    if reader.fieldnames:
+                         # Normalize headers to lowercase
+                         reader.fieldnames = [name.lower() for name in reader.fieldnames]
+
+                    for row in reader:
+                        email = row.get("email")
+                        if not email and row:
+                            # Fallback to first column if 'email' key missing but row exists
+                            first_val = list(row.values())[0]
+                            if "@" in first_val: # Simple heuristic
+                                email = first_val
+
+                        if email and "@" in email:
+                            emails.append(email.strip())
                 else:
-                    # Assume simple list
-                    f.seek(0)
-                    for line in f:
-                        if line.strip():
-                            emails.append(line.strip())
+                    # Simple list
+                    for line in lines:
+                        if "@" in line and line.lower() != "email":
+                            emails.append(line)
         except FileNotFoundError:
             logger.error(f"File not found: {args.file}")
             sys.exit(1)

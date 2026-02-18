@@ -1,23 +1,10 @@
 # Default team to use if not specified in CSV or if mapping fails
-default_team: "Test Team"
+default_team: "Spuyt"
 
 # Default channels to add every user to (per team context)
 default_channels:
   - "Town Square"
   - "Off-Topic"
-
-# Map CSV 'team' column to Mattermost Team Name
-team_mapping:
-  "H1": "Test Team"
-  "D1": "Test Team"
-
-# Map CSV 'tags' to Channels
-# Format: "TAG_NAME": ["Channel 1", "Channel 2"]
-tag_channel_mapping:
-  "Aanvoerder": ["Captains"]
-  "Bestuur": ["Board"]
-  "Referee": ["Referees"]
-  "Training": ["Training Updates"]
 
 # Settings
 enable_wet_run: false  # Safety: requires --execute flag in CLI to actually change state
