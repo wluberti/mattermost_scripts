@@ -189,15 +189,21 @@ class MattermostClient:
                 return None
             raise
 
-    def create_channel(self, team_id: str, name: str, display_name: str) -> Dict:
+    def create_channel(self, team_id: str, name: str, display_name: str, channel_type: str = "P") -> Dict:
         data = {
             "team_id": team_id,
             "name": name,
             "display_name": display_name,
-            "type": "O" # Open channel
+            "type": channel_type # 'O' for Open, 'P' for Private
         }
-        logger.info(f"Creating channel: {name}")
+        logger.info(f"Creating channel: {name} (Type: {channel_type})")
         return self._request("POST", "/channels", data=data)
+
+    def update_channel_privacy(self, channel_id: str, privacy: str) -> Dict:
+        """Updates channel privacy ('O' for Open, 'P' for Private)."""
+        data = {"privacy": privacy}
+        logger.info(f"Updating channel {channel_id} privacy to: {privacy}")
+        return self._request("PUT", f"/channels/{channel_id}/privacy", data=data)
 
     def add_user_to_channel(self, channel_id: str, user_id: str) -> Dict:
         data = {
@@ -213,6 +219,12 @@ class MattermostClient:
                   logger.warning(f"User {user_id} likely already in channel {channel_id} (400 returned). Response: {e.response.text}")
                   return {}
              raise
+
+    def set_channel_member_roles(self, channel_id: str, user_id: str, roles: str) -> Dict:
+        """Updates a user's roles in a channel."""
+        data = {"roles": roles}
+        logger.info(f"Setting roles '{roles}' for user {user_id} in channel {channel_id}")
+        return self._request("PUT", f"/channels/{channel_id}/members/{user_id}/roles", data=data)
 
     def remove_user_from_channel(self, channel_id: str, user_id: str) -> Dict:
         try:

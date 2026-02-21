@@ -13,7 +13,7 @@ help:
 	@echo "  import       : Run the import script (dry-run by default)"
 	@echo "  sync         : Run import with team sync (removes users not in CSV from team)"
 	@echo "  disable      : Run the disable script"
-	@echo "  prepare      : Convert members export CSV to users.csv"
+	@echo "  prepare      : Convert ClubCollect members export CSV to users.csv"
 	@echo "  clean        : Remove virtual environment and artifacts"
 	@echo ""
 

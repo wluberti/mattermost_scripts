@@ -61,6 +61,10 @@ def main():
     if args.action == "add":
         logger.info(f"Adding {args.email} to {args.channel}")
         client.add_user_to_channel(channel["id"], user["id"])
+        import re
+        if re.match(r"^[A-Za-z]\d?$", args.channel):
+            logger.info(f"Setting channel admin roles for {args.email} in '{args.channel}'")
+            client.set_channel_member_roles(channel["id"], user["id"], "channel_user channel_admin")
     elif args.action == "remove":
         logger.info(f"Removing {args.email} from {args.channel}")
         client.remove_user_from_channel(channel["id"], user["id"])

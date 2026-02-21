@@ -128,6 +128,8 @@ def process_row(row: Dict[str, str], config: Dict, client: MattermostClient, dry
         if not dry_run:
             client.add_user_to_team(team["id"], user_id)
 
+        tags_list = [t.strip().lower() for t in tags_csv.split(",") if t.strip()]
+
         # 4. Add to Default Channels
         for chan_name in config.get("default_channels", []):
             chan_slug = chan_name.lower().replace(" ", "-")
@@ -136,6 +138,9 @@ def process_row(row: Dict[str, str], config: Dict, client: MattermostClient, dry
                  if not dry_run:
                     try:
                         client.add_user_to_channel(channel["id"], user_id)
+                        # Check if user is Bestuur to grant admin rights in public default channels
+                        if "bestuur" in tags_list and channel["type"] == "O":
+                            client.set_channel_member_roles(channel["id"], user_id, "channel_user channel_admin")
                     except Exception as e:
                         logger.error(f"Failed to add {email} to default channel {chan_name}: {e}")
             else:
@@ -150,17 +155,52 @@ def process_row(row: Dict[str, str], config: Dict, client: MattermostClient, dry
             if not channel:
                  logger.info(f"Channel '{chan_name}' not found. Creating...")
                  if not dry_run:
-                     channel = client.create_channel(team["id"], chan_slug, chan_name)
+                     channel = client.create_channel(team["id"], chan_slug, chan_name, "P")
 
             if channel:
+                # Ensure it's private if it exists and is public
+                if channel["type"] == "O":
+                     logger.info(f"Channel '{chan_name}' is public. Converting to private...")
+                     if not dry_run:
+                         client.update_channel_privacy(channel["id"], "P")
                 logger.info(f"Adding {email} to channel '{chan_name}'")
                 if not dry_run:
                     try:
                         client.add_user_to_channel(channel["id"], user_id)
+                        if re.match(r"^[A-Za-z]\d?$", team_csv):
+                            client.set_channel_member_roles(channel["id"], user_id, "channel_user channel_admin")
                     except Exception as e:
-                        logger.error(f"Failed to add {email} to channel {chan_name}: {e}")
+                        logger.error(f"Failed to add/update roles for {email} in channel {chan_name}: {e}")
             else:
                 logger.error(f"Could not find or create channel '{chan_name}'")
+
+        # 6. Add to Label Channels (e.g. 'captain', 'trainer', 'tc')
+        if tags_csv:
+            for target_label in ["captain", "trainer", "tc"]:
+                if target_label in tags_list:
+                    chan_name = target_label.capitalize()
+                    chan_slug = target_label
+                    channel = client.get_channel_by_name(team["id"], chan_slug)
+
+                    if not channel:
+                        logger.info(f"Channel '{chan_name}' not found. Creating...")
+                        if not dry_run:
+                            channel = client.create_channel(team["id"], chan_slug, chan_name, "P")
+
+                    if channel:
+                        if channel["type"] == "O":
+                            logger.info(f"Channel '{chan_name}' is public. Converting to private...")
+                            if not dry_run:
+                                client.update_channel_privacy(channel["id"], "P")
+
+                        logger.info(f"Adding {email} to channel '{chan_name}'")
+                        if not dry_run:
+                            try:
+                                client.add_user_to_channel(channel["id"], user_id)
+                                if target_label == "tc":
+                                    client.set_channel_member_roles(channel["id"], user_id, "channel_user channel_admin")
+                            except Exception as e:
+                                logger.error(f"Failed to add {email} to channel {chan_name}: {e}")
 
     except TeamMemberLimitExceededError:
         logger.warning(f"Skipping channel assignments for {email}: Default Team is full.")

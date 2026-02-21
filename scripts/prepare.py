@@ -27,7 +27,7 @@ def parse_labels(labels_str: str) -> (str, List[str]):
     team_regex = re.compile(r"^[A-Za-z]\d?$") # Single letter or Letter+Digit
 
     # Allowed tags (case-insensitive for checking)
-    ALLOWED_TAGS = {'trainer', 'tientjeslid', 'trainingmember', 'captain'}
+    ALLOWED_TAGS = {'trainer', 'tientjeslid', 'trainingmember', 'captain', 'tc', 'bestuur'}
 
     # Check for 'recreant' priority
     recreant_match = next((p for p in parts if "recreant" in p.lower()), None)
