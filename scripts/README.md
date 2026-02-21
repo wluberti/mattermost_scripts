@@ -38,6 +38,22 @@ make import ARGS="--execute"
 make import CSV="../my_users.csv" ARGS="--execute"
 ```
 
+### Prepare Data
+Transforms raw ClubCollect export (semicolon-separated) into `users.csv`.
+
+**Defaults:**
+- Input: `../clubcollect.csv`
+- Output: `../users.csv`
+
+```bash
+make prepare
+```
+
+**Custom paths:**
+```bash
+make prepare INPUT="../members.csv" OUTPUT="../my_users.csv"
+```
+
 ### Disable Users
 Disables users listed in a CSV or text file. Defaults to `../disable.csv`.
 The file should have an `email` column or list one email per line.

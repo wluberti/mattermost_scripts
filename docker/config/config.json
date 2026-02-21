@@ -99,7 +99,7 @@
         "PersistentNotificationMaxCount": 6,
         "PersistentNotificationMaxRecipients": 5,
         "EnableAPIChannelDeletion": false,
-        "EnableLocalMode": false,
+        "EnableLocalMode": true,
         "LocalModeSocketLocation": "/var/tmp/mattermost_local.socket",
         "EnableAWSMetering": false,
         "SplitKey": "",
@@ -120,8 +120,8 @@
         "DeleteAccountLink": ""
     },
     "TeamSettings": {
-        "SiteName": "Mattermost",
-        "MaxUsersPerTeam": 50,
+        "SiteName": "VV De Spuyt",
+        "MaxUsersPerTeam": 250,
         "EnableJoinLeaveMessageByDefault": true,
         "EnableUserCreation": true,
         "EnableOpenServer": false,
@@ -137,7 +137,7 @@
         "MaxChannelsPerTeam": 2000,
         "MaxNotificationsPerChannel": 1000,
         "EnableConfirmNotificationsToChannel": true,
-        "TeammateNameDisplay": "username",
+        "TeammateNameDisplay": "nickname_full_name",
         "ExperimentalViewArchivedChannels": true,
         "ExperimentalEnableAutomaticReplies": false,
         "LockTeammateNameDisplay": false,
@@ -169,7 +169,7 @@
     },
     "LogSettings": {
         "EnableConsole": true,
-        "ConsoleLevel": "DEBUG",
+        "ConsoleLevel": "INFO",
         "ConsoleJson": true,
         "EnableColor": false,
         "EnableFile": true,
@@ -196,7 +196,7 @@
     },
     "NotificationLogSettings": {
         "EnableConsole": true,
-        "ConsoleLevel": "DEBUG",
+        "ConsoleLevel": "INFO",
         "ConsoleJson": true,
         "EnableColor": false,
         "EnableFile": true,

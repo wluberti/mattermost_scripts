@@ -12,3 +12,4 @@ docker/*
 !docker/config/
 !docker/config/config.json
 
+config.json

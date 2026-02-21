@@ -4,6 +4,10 @@ from utils import get_logger
 
 logger = get_logger(__name__)
 
+class TeamMemberLimitExceededError(Exception):
+    """Raised when the team has reached its member limit."""
+    pass
+
 class MattermostClient:
     """Client for interacting with the Mattermost API."""
 
@@ -54,14 +58,21 @@ class MattermostClient:
                      is_expected = True
 
             if not is_expected:
-                logger.error(f"API Request Failed: {method} {url} - {e}")
+                error_msg = f"API Request Failed: {method} {url} - {e}"
                 if hasattr(e, 'response') and e.response is not None:
-                    logger.debug(f"Response: {e.response.text}")
+                    error_msg += f" | Response: {e.response.text}"
+                logger.error(error_msg)
             else:
                 logger.debug(f"Expected API Error: {method} {url} - {e}")
             raise
 
     # User Management
+    def get_users_by_ids(self, user_ids: List[str]) -> List[Dict]:
+        """Fetches users by a list of IDs."""
+        if not user_ids:
+            return []
+        return self._request("POST", "/users/ids", data=user_ids)
+
     def get_user_by_email(self, email: str) -> Optional[Dict]:
         try:
             return self._request("GET", f"/users/email/{email}", expected_status_codes=[404])
@@ -70,7 +81,15 @@ class MattermostClient:
                 return None
             raise
 
-    def create_user(self, email: str, username: str, first_name: str, last_name: str, position: str = "", password: str = "Password123!") -> Dict:
+    def get_user_by_username(self, username: str) -> Optional[Dict]:
+        try:
+            return self._request("GET", f"/users/username/{username}", expected_status_codes=[404])
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 404:
+                return None
+            raise
+
+    def create_user(self, email: str, username: str, first_name: str, last_name: str, position: str = "", nickname: str = "", password: str = "Password123!") -> Dict:
         """Creates a new user."""
         data = {
             "email": email,
@@ -78,17 +97,19 @@ class MattermostClient:
             "first_name": first_name,
             "last_name": last_name,
             "position": position,
+            "nickname": nickname,
             "password": password,
         }
         logger.info(f"Creating user: {username} ({email})")
         return self._request("POST", "/users", data=data)
 
-    def update_user(self, user_id: str, first_name: str, last_name: str, position: str = "") -> Dict:
+    def update_user(self, user_id: str, first_name: str, last_name: str, position: str = "", nickname: str = "") -> Dict:
         """Updates user profile."""
         data = {
             "first_name": first_name,
             "last_name": last_name,
             "position": position,
+            "nickname": nickname,
         }
         logger.info(f"Updating user {user_id}")
         return self._request("PUT", f"/users/{user_id}/patch", data=data)
@@ -113,6 +134,15 @@ class MattermostClient:
                 return None
             raise
 
+    def get_team_members(self, team_id: str) -> List[Dict]:
+        """Returns a list of team members."""
+        # Note: Pagination might be needed for large teams, but default page size is usually 60 or 200.
+        # We'll stick to one page explicitly requesting a large number?
+        # Or better, just use the helper to get all?
+        # For this specific case, simpler is better. Standard endpoint returns paged results.
+        # We'll request 200 users for now.
+        return self._request("GET", f"/teams/{team_id}/members", params={"per_page": 200})
+
     def create_team(self, name: str, display_name: str) -> Dict:
          """Creates a new team."""
          data = {
@@ -122,6 +152,11 @@ class MattermostClient:
          }
          logger.info(f"Creating team: {name}")
          return self._request("POST", "/teams", data=data)
+
+    def remove_user_from_team(self, team_id: str, user_id: str) -> Dict:
+        """Removes a user from a team."""
+        logger.info(f"Removing user {user_id} from team {team_id}")
+        return self._request("DELETE", f"/teams/{team_id}/members/{user_id}")
 
     def add_user_to_team(self, team_id: str, user_id: str) -> Dict:
         """Adds a user to a team."""
@@ -135,9 +170,13 @@ class MattermostClient:
              if e.response and "app.team.join_user_to_team.save_member.exception" in str(e.response.text):
                  logger.debug(f"User {user_id} already in team {team_id}")
                  return {} # Idempotent-ish
-             # Sometimes 400 is returned for already exists
              if e.response.status_code == 400:
-                  logger.debug(f"User {user_id} likely already in team {team_id} (400 returned)")
+                  # Check for max accounts error specifically to raise it
+                  if "max_accounts.app_error" in e.response.text:
+                      logger.warning(f"Team limit reached when adding user {user_id} to team {team_id}.")
+                      raise TeamMemberLimitExceededError(f"Team {team_id} is full.")
+
+                  logger.warning(f"User {user_id} likely already in team {team_id} (400 returned). Response: {e.response.text}")
                   return {}
              raise
 
@@ -171,7 +210,7 @@ class MattermostClient:
                  logger.debug(f"User {user_id} already in channel {channel_id}")
                  return {}
              if e.response.status_code == 400: # Sometimes returns 400 for already existing
-                  logger.debug(f"User {user_id} likely already in channel {channel_id} (400 returned)")
+                  logger.warning(f"User {user_id} likely already in channel {channel_id} (400 returned). Response: {e.response.text}")
                   return {}
              raise
 
@@ -182,4 +221,3 @@ class MattermostClient:
             if e.response.status_code == 404: # User not in channel
                 return {}
             raise
-
